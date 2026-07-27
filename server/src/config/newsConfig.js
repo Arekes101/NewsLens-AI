@@ -1,5 +1,5 @@
-module.exports = {
+export const newsConfig = {
   language: "en",
   country: "in",
-  maxResults: 10,
+  size: 10,
 };

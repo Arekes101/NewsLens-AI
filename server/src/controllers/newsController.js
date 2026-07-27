@@ -1,21 +1,21 @@
-const newsService = require("../services/newsService");
+import * as newsService from "../services/newsService.js";
 
-const getNews = async (req, res) => {
+export const getNews = async (req, res) => {
   try {
-    const category = req.query.category || "general";
+    const category = req.query.category || "";
 
-    const news = await newsService.getTopHeadlines(category);
+    const articles = await newsService.getNews(category);
 
-    res.status(200).json(news);
+    res.json({
+      success: true,
+      articles,
+    });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-    message: "Unable to fetch news at the moment.",
-      articles: []
+      message: "Failed to fetch news",
     });
   }
-};
-
-module.exports = {
-  getNews,
 };

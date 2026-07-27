@@ -1,7 +1,6 @@
-const express = require("express");
-const cors = require("cors");
-
-const newsRoutes = require("./routes/newsRoutes");
+import express from "express";
+import cors from "cors";
+import newsRoutes from "./routes/newsRoutes.js";
 
 const app = express();
 
@@ -10,4 +9,4 @@ app.use(express.json());
 
 app.use("/api/news", newsRoutes);
 
-module.exports = app;
+export default app;
