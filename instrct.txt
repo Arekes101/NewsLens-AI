@@ -1,0 +1,87 @@
+GET /api/news
+GET /api/news?category=technology
+{
+  "success": true,
+  "articles": []
+}
+
+GET /api/news/search?q=AI
+{
+  "success": true,
+  "articles": []
+}
+
+GET /api/news/category/technology
+/api/news/category/business
+
+/api/news/category/sports
+
+/api/news/category/health
+
+/api/news/category/science
+
+/api/news/category/world
+
+
+
+GET /api/news/country/in
+/api/news/country/us
+
+/api/news/country/gb
+
+/api/news/country/jp
+
+/api/news/country/au
+
+
+GET /api/news/language/en
+/api/news/language/hi
+
+/api/news/language/ta
+
+/api/news/language/fr
+
+/api/news/language/es
+
+/api/news/language/de
+
+
+POST /api/ai/summarize
+{
+  "text": "Article..."
+}
+
+POST /api/ai/explain
+{
+  "text": "Article..."
+}
+
+POST /api/ai/keypoints
+{
+  "text": "Article..."
+}
+
+POST /api/ai/sentiment
+{
+  "text": "Article..."
+}
+
+POST /api/ai/chat
+{
+  "text":"Article...",
+  "question":"Why is this important?"
+}
+
+POST /api/ai/daily-brief
+{
+  "articles":[
+    {
+      "title":"...",
+      "description":"..."
+    },
+    {
+      "title":"...",
+      "description":"..."
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewsLens AI</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="masthead">
+    <div class="masthead-inner">
+        <h1>NewsLens<span>AI</span></h1>
+        <p class="tagline">A quieter way to read the news</p>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Controls -->
+
+    <section class="controls">
+
+        <div class="controls-search">
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search news…"
+            >
+
+            <button id="searchBtn" class="btn btn-primary">
+                Search
+            </button>
+        </div>
+
+        <div class="controls-filters">
+
+            <select id="categorySelect">
+                <option value="">Category</option>
+                <option value="technology">Technology</option>
+                <option value="business">Business</option>
+                <option value="sports">Sports</option>
+                <option value="health">Health</option>
+                <option value="science">Science</option>
+                <option value="world">World</option>
+            </select>
+
+            <select id="countrySelect">
+                <option value="">Country</option>
+                <option value="in">India</option>
+                <option value="us">USA</option>
+                <option value="gb">UK</option>
+                <option value="jp">Japan</option>
+                <option value="au">Australia</option>
+            </select>
+
+            <select id="languageSelect">
+                <option value="">Language</option>
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="ta">Tamil</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+            </select>
+
+            <button id="loadNewsBtn" class="btn btn-ghost">
+                Get News
+            </button>
+
+            <button id="dailyBriefBtn" class="btn btn-outline">
+                Daily Brief
+            </button>
+
+        </div>
+
+    </section>
+
+    <!-- Loader -->
+
+    <div id="loader" class="hidden">
+        <span class="loader-dot"></span> Fetching the latest
+    </div>
+
+    <!-- AI Response -->
+
+    <section id="aiResponse" class="hidden">
+        <div class="ai-response-head">
+            <h2>AI Note</h2>
+            <button id="aiCloseBtn" class="ai-close" aria-label="Close">&times;</button>
+        </div>
+        <pre id="aiOutput"></pre>
+    </section>
+
+    <!-- News -->
+
+    <section
+        id="newsContainer"
+        class="news-grid"
+    >
+
+    </section>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
