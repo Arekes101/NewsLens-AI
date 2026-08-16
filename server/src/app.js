@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import newsRoutes from "./routes/newsRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import interactionRoutes from "./routes/interactionRoutes.js";
 
 const app = express();
 
@@ -10,4 +11,5 @@ app.use(express.json());
 
 app.use("/api/news", newsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/interactions", interactionRoutes);
 export default app;
