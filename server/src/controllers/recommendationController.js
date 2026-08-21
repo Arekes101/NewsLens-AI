@@ -1,4 +1,52 @@
 import { getCandidateArticles } from "../services/recommendationService.js";
+import { execFile } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
+
+export const getPersonalizedRecommendations = (req, res) => {
+  const { userId } = req.params;
+
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  const scriptPath = path.join(
+    __dirname,
+    "../../../ml/recommend_api.py"
+  );
+
+  const pythonPath = path.join(
+    __dirname,
+    "../../../ml/venv/Scripts/python.exe"
+  );
+
+  execFile(
+    pythonPath,
+    [scriptPath, userId],
+    (error, stdout, stderr) => {
+      if (error) {
+        console.error("Recommendation error:", error);
+        console.error("Python stderr:", stderr);
+
+        return res.status(500).json({
+          success: false,
+          message: "Failed to generate recommendations",
+        });
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        res.json(result);
+      } catch (parseError) {
+        console.error("Python output:", stdout);
+
+        return res.status(500).json({
+          success: false,
+          message: "Invalid recommendation response",
+        });
+      }
+    }
+  );
+};
 
 export const getCandidates = async (req, res) => {
   try {

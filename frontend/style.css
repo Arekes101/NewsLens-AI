@@ -506,3 +506,126 @@ body{
         margin-top:12px;
     }
 }
+/* ---------------------------------
+   View tabs (Latest / For You)
+-----------------------------------*/
+
+.view-tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:22px;
+}
+
+.view-tabs .tab{
+    padding:9px 16px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--ink-soft);
+    font-family:var(--font-body);
+    font-size:13.5px;
+    font-weight:500;
+    border-radius:999px;
+    cursor:pointer;
+    transition:.15s ease;
+}
+
+.view-tabs .tab:hover{
+    border-color:var(--ink-soft);
+    color:var(--ink);
+}
+
+.view-tabs .tab.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+}
+
+/* ---------------------------------
+   For You header
+-----------------------------------*/
+
+.foryou-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:22px;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--border);
+}
+
+.foryou-head h2{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:1.3rem;
+    color:var(--ink);
+}
+
+.foryou-head p{
+    margin-top:2px;
+    font-size:13px;
+    color:var(--ink-soft);
+    font-family:var(--font-mono);
+}
+
+/* ---------------------------------
+   State message (empty / error)
+-----------------------------------*/
+
+.state-message{
+    text-align:center;
+    padding:50px 20px;
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    border:1px dashed var(--border);
+    border-radius:var(--radius);
+    margin-bottom:22px;
+}
+
+.state-message.error{
+    color:#a13d3d;
+    border-color:#e6c9c9;
+}
+
+.state-message .retry-btn{
+    display:inline-block;
+    margin-top:12px;
+    padding:8px 16px;
+    border:1px solid var(--accent);
+    border-radius:var(--radius-sm);
+    background:transparent;
+    color:var(--accent);
+    font-family:var(--font-body);
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+}
+
+.state-message .retry-btn:hover{
+    background:var(--accent-soft);
+}
+
+/* ---------------------------------
+   Like / Save / Share states
+-----------------------------------*/
+
+.likeBtn.active{
+    border-color:#b5473f !important;
+    color:#b5473f !important;
+    background:#fbeceb !important;
+}
+
+.saveBtn.active{
+    border-color:var(--accent) !important;
+    color:var(--accent) !important;
+    background:var(--accent-soft) !important;
+}
+
+.score-badge{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+}
