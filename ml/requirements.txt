@@ -2,3 +2,4 @@ sentence-transformers
 qdrant-client
 python-dotenv
 pymongo
+numpy
