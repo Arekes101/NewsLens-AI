@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -8,6 +9,12 @@ from qdrant_client import QdrantClient
 from qdrant_utils import article_id_to_point_id
 
 load_dotenv()
+
+# -----------------------------
+# User ID
+# -----------------------------
+
+USER_ID = sys.argv[1] if len(sys.argv) > 1 else "demo-user"
 
 # -----------------------------
 # MongoDB
@@ -36,8 +43,6 @@ qdrant_client = QdrantClient(
 
 COLLECTION_NAME = "article_embeddings"
 
-USER_ID = "demo-user"
-
 # -----------------------------
 # Interaction weights
 # -----------------------------
@@ -63,7 +68,9 @@ interactions = list(
     })
 )
 
-print(f"Found {len(interactions)} interactions")
+print(
+    f"Found {len(interactions)} interactions"
+)
 
 weighted_vectors = []
 weights = []
@@ -98,7 +105,10 @@ for interaction in interactions:
 
     vector = np.array(results[0].vector)
 
-    weighted_vectors.append(vector * weight)
+    weighted_vectors.append(
+        vector * weight
+    )
+
     weights.append(weight)
 
     print(
@@ -111,7 +121,11 @@ for interaction in interactions:
 # -----------------------------
 
 if not weighted_vectors:
-    print("No valid interactions found.")
+
+    print(
+        "No valid interactions found."
+    )
+
     mongo_client.close()
     exit()
 
@@ -121,6 +135,7 @@ user_vector = (
 )
 
 # Normalize the vector
+
 norm = np.linalg.norm(user_vector)
 
 if norm > 0:
@@ -128,7 +143,10 @@ if norm > 0:
 
 print("\nUser vector generated!")
 
-print("Vector size:", len(user_vector))
+print(
+    "Vector size:",
+    len(user_vector)
+)
 
 print(
     "First 5 values:",
@@ -152,13 +170,18 @@ user_profiles_collection.update_one(
     },
     {
         "$set": {
-            "preferenceVector": user_vector.tolist(),
-            "vectorUpdatedAt": datetime.now(timezone.utc),
+            "preferenceVector":
+                user_vector.tolist(),
+
+            "vectorUpdatedAt":
+                datetime.now(timezone.utc),
         }
     },
     upsert=True,
 )
 
-print("User vector saved to MongoDB!")
+print(
+    "User vector saved to MongoDB!"
+)
 
 mongo_client.close()
