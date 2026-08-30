@@ -26,40 +26,45 @@ const saveArticles = async (articles) => {
   }
 };
 
-const processArticles = async (articles) => {
-  const mappedArticles = articles.map(mapArticle);
+const processArticles = async (responseObj) => {
+  const rawArticles = responseObj.results || [];
+  const nextPage = responseObj.nextPage || null;
+  const mappedArticles = rawArticles.map(mapArticle);
 
   await saveArticles(mappedArticles);
 
-  return mappedArticles;
+  return {
+    articles: mappedArticles,
+    nextPage,
+  };
 };
 
-export const getNews = async (category = "") => {
-  const articles = await fetchNews({ category });
+export const getNews = async (category = "", page = "") => {
+  const resData = await fetchNews({ category, page });
 
-  return processArticles(articles);
+  return processArticles(resData);
 };
 
-export const searchNews = async (query) => {
-  const articles = await fetchNews({ q: query });
+export const searchNews = async (query, page = "") => {
+  const resData = await fetchNews({ q: query, page });
 
-  return processArticles(articles);
+  return processArticles(resData);
 };
 
-export const getNewsByCountry = async (country) => {
-  const articles = await fetchNews({ country });
+export const getNewsByCountry = async (country, page = "") => {
+  const resData = await fetchNews({ country, page });
 
-  return processArticles(articles);
+  return processArticles(resData);
 };
 
-export const getNewsByLanguage = async (language) => {
-  const articles = await fetchNews({ language });
+export const getNewsByLanguage = async (language, page = "") => {
+  const resData = await fetchNews({ language, page });
 
-  return processArticles(articles);
+  return processArticles(resData);
 };
 
-export const getNewsByCategory = async (category) => {
-  const articles = await fetchNews({ category });
+export const getNewsByCategory = async (category, page = "") => {
+  const resData = await fetchNews({ category, page });
 
-  return processArticles(articles);
+  return processArticles(resData);
 };

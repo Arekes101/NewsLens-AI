@@ -22,6 +22,8 @@ QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 USER_ID = sys.argv[1]
+OFFSET = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+LIMIT = int(sys.argv[3]) if len(sys.argv) > 3 else 10
 
 COLLECTION_NAME = "article_embeddings"
 
@@ -66,20 +68,22 @@ profile = user_profiles.find_one({
     "userId": USER_ID
 })
 
-if not profile:
+if not profile or not profile.get("preferenceVector"):
+    # Dynamically generate user profile vector from interactions
+    user_rep_script = os.path.join(os.path.dirname(__file__), "user_representation.py")
+    os.system(f'"{sys.executable}" "{user_rep_script}" "{USER_ID}"')
+    profile = user_profiles.find_one({"userId": USER_ID})
 
+if not profile or not profile.get("preferenceVector"):
+    # If user still has 0 valid interactions, return friendly message
     print(json.dumps({
-        "success": False,
-        "message": "User profile not found"
+        "success": True,
+        "recommendations": [],
+        "message": "No recommendations available yet. Interact with a few articles first!"
     }))
+    sys.exit(0)
 
-    sys.exit(1)
-
-
-user_vector = profile.get(
-    "preferenceVector",
-    []
-)
+user_vector = profile.get("preferenceVector", [])
 
 if len(user_vector) != 384:
 
@@ -289,7 +293,7 @@ qdrant_client = QdrantClient(
 results = qdrant_client.query_points(
     collection_name=COLLECTION_NAME,
     query=user_vector,
-    limit=10,
+    limit=OFFSET + LIMIT + 20,
 ).points
 
 
@@ -348,7 +352,7 @@ for result in results:
 
 
 # =============================
-# SORT
+# SORT & PAGINATE
 # =============================
 
 ranked.sort(
@@ -356,6 +360,8 @@ ranked.sort(
         article["score"],
     reverse=True
 )
+
+paginated_ranked = ranked[OFFSET:OFFSET + LIMIT]
 
 
 # =============================
@@ -368,6 +374,6 @@ print(json.dumps({
 
     "userId": USER_ID,
 
-    "recommendations": ranked
+    "recommendations": paginated_ranked
 
 }))

@@ -8,6 +8,7 @@ export const fetchNews = async ({
   category = "",
   country = newsConfig.country,
   language = newsConfig.language,
+  page = "",
 } = {}) => {
   try {
     const params = {
@@ -19,10 +20,14 @@ export const fetchNews = async ({
 
     if (q) params.q = q;
     if (category) params.category = category;
+    if (page) params.page = page;
 
     const response = await axios.get(BASE_URL, { params });
 
-    return response.data.results || [];
+    return {
+      results: response.data.results || [],
+      nextPage: response.data.nextPage || null,
+    };
   } catch (error) {
     console.log("NewsData Error:");
     console.log(error.response?.data);

@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 
 export const getPersonalizedRecommendations = (req, res) => {
   const { userId } = req.params;
+  const offset = req.query.offset || "0";
+  const limit = req.query.limit || "10";
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -21,7 +23,7 @@ export const getPersonalizedRecommendations = (req, res) => {
 
   execFile(
     pythonPath,
-    [scriptPath, userId],
+    [scriptPath, userId, String(offset), String(limit)],
     (error, stdout, stderr) => {
       if (error) {
         console.error("Recommendation error:", error);

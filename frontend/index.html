@@ -26,6 +26,7 @@
             <button id="latestTabBtn" class="tab active">Latest</button>
             <button id="forYouTabBtn" class="tab">For You</button>
             <button id="savedTabBtn" class="tab">Saved</button>
+            <button id="refreshBtn" class="tab tab-refresh" title="Refresh current feed">↻ Refresh</button>
         </div>
 
         <!-- Controls -->
@@ -95,7 +96,7 @@
                 <h2>AI Note</h2>
                 <button id="aiCloseBtn" class="ai-close" aria-label="Close">&times;</button>
             </div>
-            <pre id="aiOutput"></pre>
+            <div id="aiOutput" class="ai-output"></div>
         </section>
 
         <!-- For You state message (empty / error) -->
@@ -111,6 +112,12 @@
         <section id="newsContainer" class="news-grid">
 
         </section>
+
+        <!-- Load More Container -->
+
+        <div id="loadMoreContainer" class="load-more-container hidden">
+            <button id="loadMoreBtn" class="load-more-btn">Load More Articles</button>
+        </div>
 
     </div>
 

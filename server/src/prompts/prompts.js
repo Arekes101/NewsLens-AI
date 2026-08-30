@@ -1,18 +1,7 @@
 export const summaryPrompt = (text) => `
 You are an expert news analyst.
 
-Summarize this news article.
-
-Return ONLY valid JSON.
-
-{
-  "summary":[
-    "...",
-    "...",
-    "...",
-    "..."
-  ]
-}
+Provide a concise, well-structured summary of the following news article using clear bullet points. Do NOT return JSON or code blocks.
 
 Article:
 
@@ -20,13 +9,7 @@ ${text}
 `;
 
 export const explainPrompt = (text) => `
-Explain this news article to someone with no technical background.
-
-Return ONLY valid JSON.
-
-{
-  "explanation":"..."
-}
+Explain this news article to someone with no technical background in clear, simple language. Do NOT return JSON or code blocks.
 
 Article:
 
@@ -34,18 +17,7 @@ ${text}
 `;
 
 export const keypointsPrompt = (text) => `
-Extract the most important points.
-
-Return ONLY valid JSON.
-
-{
-  "keypoints":[
-    "...",
-    "...",
-    "...",
-    "..."
-  ]
-}
+Extract the key take-aways from this news article as concise bullet points. Do NOT return JSON or code blocks.
 
 Article:
 
@@ -53,15 +25,13 @@ ${text}
 `;
 
 export const sentimentPrompt = (text) => `
-Analyze the sentiment.
+Analyze the tone and sentiment of this news article.
 
-Return ONLY valid JSON.
+Format your output as:
+Sentiment: [Positive / Negative / Neutral]
+Reasoning: [1-2 sentences explaining why]
 
-{
-  "sentiment":"Positive | Negative | Neutral",
-
-  "reason":"..."
-}
+Do NOT return JSON or code blocks.
 
 Article:
 
@@ -69,13 +39,7 @@ ${text}
 `;
 
 export const chatPrompt = (text, question) => `
-Answer ONLY using the information inside the article.
-
-Return ONLY valid JSON.
-
-{
-  "answer":"..."
-}
+Answer the question using ONLY the information inside the article. Be direct and clear. Do NOT return JSON or code blocks.
 
 Article:
 
@@ -86,16 +50,22 @@ Question:
 ${question}
 `;
 
-export const dailyBriefPrompt = (articles) => `
-Summarize today's news.
+export const dailyBriefPrompt = (articles) => {
+    const text = Array.isArray(articles)
+        ? articles
+            .map(
+                (a, i) =>
+                    `${i + 1}. Title: ${a.title || "Untitled"}\nDescription: ${a.description || "No description available"
+                    }`
+            )
+            .join("\n\n")
+        : articles || "No articles provided.";
 
-Return ONLY valid JSON.
-
-{
- "brief":"..."
-}
+    return `
+Summarize today's news articles into a clean executive daily brief with clear bullet points. Highlight key trends and major stories. Do NOT return JSON or code blocks.
 
 Articles:
 
-${articles}
+${text}
 `;
+};

@@ -31,6 +31,7 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 qdrant_client = QdrantClient(
     url=QDRANT_URL,
     api_key=QDRANT_API_KEY,
+    timeout=60.0,
 )
 
 COLLECTION_NAME = "article_embeddings"
@@ -103,10 +104,15 @@ print(f"Generated {len(points)} embeddings.")
 # -----------------------------
 
 if points:
-    qdrant_client.upsert(
-        collection_name=COLLECTION_NAME,
-        points=points,
-    )
+    batch_size = 20
+    total_batches = (len(points) + batch_size - 1) // batch_size
+    for i in range(0, len(points), batch_size):
+        batch = points[i:i + batch_size]
+        qdrant_client.upsert(
+            collection_name=COLLECTION_NAME,
+            points=batch,
+        )
+        print(f"Uploaded batch {i//batch_size + 1}/{total_batches}")
 
 print(f"Uploaded {len(points)} articles to Qdrant!")
 

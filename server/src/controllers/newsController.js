@@ -3,12 +3,14 @@ import * as newsService from "../services/newsService.js";
 export const getNews = async (req, res) => {
   try {
     const category = req.query.category || "";
+    const page = req.query.page || "";
 
-    const articles = await newsService.getNews(category);
+    const result = await newsService.getNews(category, page);
 
     res.json({
       success: true,
-      articles,
+      articles: result.articles,
+      nextPage: result.nextPage,
     });
   } catch (error) {
     console.error(error);
@@ -22,7 +24,7 @@ export const getNews = async (req, res) => {
 
 export const searchNews = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, page } = req.query;
 
     if (!q) {
       return res.status(400).json({
@@ -31,11 +33,12 @@ export const searchNews = async (req, res) => {
       });
     }
 
-    const articles = await newsService.searchNews(q);
+    const result = await newsService.searchNews(q, page || "");
 
     res.json({
       success: true,
-      articles,
+      articles: result.articles,
+      nextPage: result.nextPage,
     });
   } catch (error) {
     console.error(error);
@@ -50,12 +53,14 @@ export const searchNews = async (req, res) => {
 export const getCategoryNews = async (req, res) => {
   try {
     const { category } = req.params;
+    const page = req.query.page || "";
 
-    const articles = await newsService.getNewsByCategory(category);
+    const result = await newsService.getNewsByCategory(category, page);
 
     res.json({
       success: true,
-      articles,
+      articles: result.articles,
+      nextPage: result.nextPage,
     });
   } catch (error) {
     console.error(error);
@@ -70,12 +75,14 @@ export const getCategoryNews = async (req, res) => {
 export const getCountryNews = async (req, res) => {
   try {
     const { country } = req.params;
+    const page = req.query.page || "";
 
-    const articles = await newsService.getNewsByCountry(country);
+    const result = await newsService.getNewsByCountry(country, page);
 
     res.json({
       success: true,
-      articles,
+      articles: result.articles,
+      nextPage: result.nextPage,
     });
   } catch (error) {
     console.error(error);
@@ -90,12 +97,14 @@ export const getCountryNews = async (req, res) => {
 export const getLanguageNews = async (req, res) => {
   try {
     const { language } = req.params;
+    const page = req.query.page || "";
 
-    const articles = await newsService.getNewsByLanguage(language);
+    const result = await newsService.getNewsByLanguage(language, page);
 
     res.json({
       success: true,
-      articles,
+      articles: result.articles,
+      nextPage: result.nextPage,
     });
   } catch (error) {
     console.error(error);

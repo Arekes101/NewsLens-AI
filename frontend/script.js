@@ -27,16 +27,39 @@ const controlsSection = document.getElementById("controlsSection");
 const latestTabBtn = document.getElementById("latestTabBtn");
 const forYouTabBtn = document.getElementById("forYouTabBtn");
 const savedTabBtn = document.getElementById("savedTabBtn");
+const refreshBtn = document.getElementById("refreshBtn");
+const loadMoreContainer = document.getElementById("loadMoreContainer");
+const loadMoreBtn = document.getElementById("loadMoreBtn");
 
 const forYouState = document.getElementById("forYouState");
 const savedState = document.getElementById("savedState");
+
+const BATCH_SIZE = 9;
+let visibleCount = BATCH_SIZE;
+let nextPageToken = null;
+let recOffset = 0;
 
 let articles = [];
 let recommendations = [];
 let savedArticles = [];
 let savedArticleIds = new Set();
 
+let currentLatestUrl = `${BASE_URL}/news`;
+let hasLoadedLatest = false;
+let hasLoadedForYou = false;
+let hasLoadedSaved = false;
+
 let currentView = "latest"; // "latest" | "forYou" | "saved"
+
+function updateLoadMoreButton(hasMore) {
+    if (loadMoreContainer) {
+        if (hasMore) {
+            loadMoreContainer.classList.remove("hidden");
+        } else {
+            loadMoreContainer.classList.add("hidden");
+        }
+    }
+}
 
 /* ------------------------
    HELPERS
@@ -50,9 +73,56 @@ function hideLoader() {
     loader.classList.add("hidden");
 }
 
+function formatMarkdown(text) {
+    if (!text) return "";
+
+    let content = text;
+
+    if (typeof text === "string" && (text.trim().startsWith("{") || text.trim().startsWith("["))) {
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.summary && Array.isArray(parsed.summary)) content = parsed.summary.map(s => `* ${s}`).join("\n");
+            else if (parsed.keypoints && Array.isArray(parsed.keypoints)) content = parsed.keypoints.map(k => `* ${k}`).join("\n");
+            else if (parsed.explanation) content = parsed.explanation;
+            else if (parsed.sentiment) content = `**Sentiment:** ${parsed.sentiment}\n\n**Reason:** ${parsed.reason || ""}`;
+            else if (parsed.answer) content = parsed.answer;
+            else if (parsed.brief) content = parsed.brief;
+        } catch (e) {
+            // Keep original string
+        }
+    }
+
+    let html = content
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        // Headings (###### down to #)
+        .replace(/^###### (.*$)/gim, '<h6>$1</h6>')
+        .replace(/^##### (.*$)/gim, '<h5>$1</h5>')
+        .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.*?)__/g, '<strong>$1</strong>')
+        // Bullet points
+        .replace(/^\s*[\*\-•]\s+(.*$)/gim, '<li>$1</li>')
+        // Remove orphan or trailing single asterisks
+        .replace(/^\s*\*+\s*$/gim, '')
+        .replace(/([a-zA-Z0-9.,!?])\*/g, '$1')
+        // Line breaks & paragraphs
+        .replace(/\n\n+/g, '<br><br>')
+        .replace(/\n/g, '<br>');
+
+    return html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gms, (match) => {
+        return `<ul>${match.replace(/<br>/g, '')}</ul>`;
+    });
+}
+
 function showAI(text) {
     aiResponse.classList.remove("hidden");
-    aiOutput.textContent = text;
+    aiOutput.innerHTML = formatMarkdown(text);
 }
 
 // Articles from /api/news may or may not carry a stable id.
@@ -280,40 +350,54 @@ async function chat(text, question, articleId) {
 }
 
 async function dailyBrief() {
+    let currentArticles = articles;
+    if (currentView === "forYou" && recommendations.length > 0) {
+        currentArticles = recommendations;
+    } else if (currentView === "saved" && savedArticles.length > 0) {
+        currentArticles = savedArticles;
+    } else if (currentArticles.length === 0) {
+        currentArticles = recommendations.length > 0 ? recommendations : savedArticles;
+    }
+
+    if (!currentArticles || currentArticles.length === 0) {
+        alert("Load some news first.");
+        return;
+    }
 
     const res = await fetch(`${BASE_URL}/ai/daily-brief`, {
-
         method: "POST",
-
         headers: {
             "Content-Type": "application/json"
         },
-
         body: JSON.stringify({
-            articles
+            articles: currentArticles
         })
-
     });
 
     const data = await res.json();
-
     showAI(data.brief);
-
 }
 
 /* ------------------------
    NEWS FETCH
 -------------------------*/
 
-async function fetchNews(url) {
+async function fetchNews(url, opts) {
+    opts = opts || {};
+    const isBackgroundRefresh = !!(opts.forceRefresh && articles.length > 0);
 
-    showLoader();
-    hideForYouState();
-    hideSavedState();
-    newsContainer.innerHTML = "";
+    currentLatestUrl = url;
+
+    if (!isBackgroundRefresh) {
+        showLoader();
+        hideForYouState();
+        hideSavedState();
+        newsContainer.innerHTML = "";
+    } else {
+        if (refreshBtn) refreshBtn.classList.add("refreshing");
+    }
 
     try {
-
         const res = await fetch(url);
 
         if (!res.ok) {
@@ -321,22 +405,20 @@ async function fetchNews(url) {
         }
 
         const data = await res.json();
-
         articles = data.articles || [];
-
+        nextPageToken = data.nextPage || null;
+        hasLoadedLatest = true;
         renderNews();
 
     } catch (err) {
-
         console.error("fetchNews failed:", err);
-        newsContainer.innerHTML = "<div class='empty-state'>Failed to fetch news. Make sure your server is running on port 5000.</div>";
-
+        if (!isBackgroundRefresh) {
+            newsContainer.innerHTML = "<div class='empty-state'>Failed to fetch news. Make sure your server is running on port 5000.</div>";
+        }
     } finally {
-
         hideLoader();
-
+        if (refreshBtn) refreshBtn.classList.remove("refreshing");
     }
-
 }
 
 /* ------------------------
@@ -629,19 +711,18 @@ function renderNews() {
     newsContainer.innerHTML = "";
 
     if (articles.length === 0) {
-
         newsContainer.innerHTML = "<p class='empty-state'>No news found</p>";
-
+        updateLoadMoreButton(false);
         return;
     }
 
-    articles.forEach((article) => {
-
+    const visibleArticles = articles.slice(0, visibleCount);
+    visibleArticles.forEach((article) => {
         const card = buildCard(article, { isRecommendation: false });
-
         newsContainer.appendChild(card);
-
     });
+
+    updateLoadMoreButton(!!nextPageToken || visibleCount < articles.length);
 
 }
 
@@ -675,13 +756,14 @@ function renderRecommendations() {
         showForYouState(
             "Your personalized feed is being built.<br>Read, like, or save a few articles to personalize it."
         );
-
+        updateLoadMoreButton(false);
         return;
     }
 
     hideForYouState();
 
-    recommendations.forEach((rec) => {
+    const visibleRecs = recommendations.slice(0, visibleCount);
+    visibleRecs.forEach((rec) => {
 
         const card = buildCard(rec, { isRecommendation: true });
 
@@ -689,16 +771,24 @@ function renderRecommendations() {
 
     });
 
+    updateLoadMoreButton(true);
+
 }
 
-async function loadPersonalized() {
+async function loadPersonalized(opts) {
+    opts = opts || {};
+    const isSilent = !!opts.silent;
+    const isBackgroundRefresh = !!(opts.forceRefresh && recommendations.length > 0) || isSilent;
 
-    showLoader();
-    hideForYouState();
-    newsContainer.innerHTML = "";
+    if (!isBackgroundRefresh && currentView === "forYou") {
+        showLoader();
+        hideForYouState();
+        newsContainer.innerHTML = "";
+    } else if (opts.forceRefresh && refreshBtn && currentView === "forYou") {
+        refreshBtn.classList.add("refreshing");
+    }
 
     try {
-
         const res = await fetch(
             `${BASE_URL}/recommendations/personalized/${USER_ID}`
         );
@@ -708,34 +798,33 @@ async function loadPersonalized() {
         }
 
         const data = await res.json();
-
         recommendations = data.recommendations || [];
+        recOffset = recommendations.length;
+        hasLoadedForYou = true;
 
-        renderRecommendations();
-
-    } catch (err) {
-
-        console.log(err);
-
-        recommendations = [];
-
-        showForYouState(
-            `Couldn't load your personalized feed.<br><button class="retry-btn" id="forYouRetryBtn">Try again</button>`,
-            true
-        );
-
-        const retryBtn = document.getElementById("forYouRetryBtn");
-
-        if (retryBtn) {
-            retryBtn.addEventListener("click", loadPersonalized);
+        if (currentView === "forYou") {
+            renderRecommendations();
         }
 
+    } catch (err) {
+        console.log(err);
+        if (!isBackgroundRefresh && currentView === "forYou") {
+            recommendations = [];
+            showForYouState(
+                `Couldn't load your personalized feed.<br><button class="retry-btn" id="forYouRetryBtn">Try again</button>`,
+                true
+            );
+            const retryBtn = document.getElementById("forYouRetryBtn");
+            if (retryBtn) {
+                retryBtn.addEventListener("click", loadPersonalized);
+            }
+        }
     } finally {
-
-        hideLoader();
-
+        if (currentView === "forYou") {
+            hideLoader();
+            if (refreshBtn) refreshBtn.classList.remove("refreshing");
+        }
     }
-
 }
 
 /* ------------------------
@@ -816,48 +905,159 @@ function renderSavedArticles() {
 
     if (savedArticles.length === 0) {
         showSavedState("You haven't saved any articles yet.<br>Click Save on any article card to bookmark it here.");
+        updateLoadMoreButton(0);
         return;
     }
 
     hideSavedState();
 
-    savedArticles.forEach((art) => {
+    const visibleSaved = savedArticles.slice(0, visibleCount);
+    visibleSaved.forEach((art) => {
         const card = buildCard(art);
         newsContainer.appendChild(card);
     });
+
+    updateLoadMoreButton(savedArticles.length);
 }
 
-async function loadSavedArticles() {
-    showLoader();
-    hideSavedState();
-    newsContainer.innerHTML = "";
+async function loadSavedArticles(opts) {
+    opts = opts || {};
+    const isBackgroundRefresh = !!(opts.forceRefresh && savedArticles.length > 0);
+
+    if (!isBackgroundRefresh) {
+        showLoader();
+        hideSavedState();
+        newsContainer.innerHTML = "";
+    } else {
+        if (refreshBtn) refreshBtn.classList.add("refreshing");
+    }
 
     try {
         await fetchSavedArticlesList();
+        hasLoadedSaved = true;
         renderSavedArticles();
     } catch (err) {
-        showSavedState(`Couldn't load saved articles.<br><button class="retry-btn" id="savedRetryBtn">Try again</button>`, true);
-        const retryBtn = document.getElementById("savedRetryBtn");
-        if (retryBtn) retryBtn.addEventListener("click", loadSavedArticles);
+        if (!isBackgroundRefresh) {
+            showSavedState(`Couldn't load saved articles.<br><button class="retry-btn" id="savedRetryBtn">Try again</button>`, true);
+            const retryBtn = document.getElementById("savedRetryBtn");
+            if (retryBtn) retryBtn.addEventListener("click", loadSavedArticles);
+        }
     } finally {
         hideLoader();
+        if (refreshBtn) refreshBtn.classList.remove("refreshing");
     }
 }
 
 latestTabBtn.addEventListener("click", () => {
+    const wasActive = currentView === "latest";
     setActiveTab("latest");
-    fetchNews(`${BASE_URL}/news`);
+    visibleCount = BATCH_SIZE;
+    if (wasActive || !hasLoadedLatest || articles.length === 0) {
+        fetchNews(currentLatestUrl, { forceRefresh: wasActive });
+    } else {
+        renderNews();
+    }
 });
 
 forYouTabBtn.addEventListener("click", () => {
+    const wasActive = currentView === "forYou";
     setActiveTab("forYou");
-    loadPersonalized();
+    visibleCount = BATCH_SIZE;
+    if (wasActive || !hasLoadedForYou || recommendations.length === 0) {
+        loadPersonalized({ forceRefresh: wasActive });
+    } else {
+        renderRecommendations();
+    }
 });
 
 savedTabBtn.addEventListener("click", () => {
+    const wasActive = currentView === "saved";
     setActiveTab("saved");
-    loadSavedArticles();
+    visibleCount = BATCH_SIZE;
+    if (wasActive || !hasLoadedSaved) {
+        loadSavedArticles({ forceRefresh: wasActive });
+    } else {
+        renderSavedArticles();
+    }
 });
+
+if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+        visibleCount = BATCH_SIZE;
+        if (currentView === "latest") {
+            fetchNews(currentLatestUrl, { forceRefresh: true });
+        } else if (currentView === "forYou") {
+            loadPersonalized({ forceRefresh: true });
+        } else if (currentView === "saved") {
+            loadSavedArticles({ forceRefresh: true });
+        }
+    });
+}
+
+if (loadMoreBtn) {
+    loadMoreBtn.addEventListener("click", async () => {
+        if (currentView === "latest") {
+            if (visibleCount < articles.length) {
+                visibleCount += BATCH_SIZE;
+                renderNews();
+            } else if (nextPageToken) {
+                const origText = loadMoreBtn.innerText;
+                loadMoreBtn.innerText = "Loading more...";
+                loadMoreBtn.disabled = true;
+                try {
+                    const delimiter = currentLatestUrl.includes("?") ? "&" : "?";
+                    const pageUrl = `${currentLatestUrl}${delimiter}page=${encodeURIComponent(nextPageToken)}`;
+                    const res = await fetch(pageUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const newArticles = data.articles || [];
+                        nextPageToken = data.nextPage || null;
+                        articles = [...articles, ...newArticles];
+                        visibleCount += BATCH_SIZE;
+                        renderNews();
+                    }
+                } catch (err) {
+                    console.error("Failed to load next page:", err);
+                } finally {
+                    loadMoreBtn.innerText = origText;
+                    loadMoreBtn.disabled = false;
+                }
+            }
+        } else if (currentView === "forYou") {
+            if (visibleCount < recommendations.length) {
+                visibleCount += BATCH_SIZE;
+                renderRecommendations();
+            } else {
+                const origText = loadMoreBtn.innerText;
+                loadMoreBtn.innerText = "Loading more...";
+                loadMoreBtn.disabled = true;
+                try {
+                    const res = await fetch(`${BASE_URL}/recommendations/personalized/${USER_ID}?offset=${recOffset}&limit=9`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const newRecs = data.recommendations || [];
+                        if (newRecs.length > 0) {
+                            recommendations = [...recommendations, ...newRecs];
+                            recOffset += newRecs.length;
+                            visibleCount += BATCH_SIZE;
+                            renderRecommendations();
+                        } else {
+                            updateLoadMoreButton(false);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to load recommendations page:", err);
+                } finally {
+                    loadMoreBtn.innerText = origText;
+                    loadMoreBtn.disabled = false;
+                }
+            }
+        } else if (currentView === "saved") {
+            visibleCount += BATCH_SIZE;
+            renderSavedArticles();
+        }
+    });
+}
 
 /* ------------------------
    BUTTON EVENTS
@@ -904,17 +1104,21 @@ searchBtn.addEventListener("click", () => {
 
 
 dailyBriefBtn.addEventListener("click", () => {
+    let currentArticles = articles;
+    if (currentView === "forYou" && recommendations.length > 0) {
+        currentArticles = recommendations;
+    } else if (currentView === "saved" && savedArticles.length > 0) {
+        currentArticles = savedArticles;
+    } else if (currentArticles.length === 0) {
+        currentArticles = recommendations.length > 0 ? recommendations : savedArticles;
+    }
 
-    if (articles.length === 0) {
-
+    if (!currentArticles || currentArticles.length === 0) {
         alert("Load some news first.");
-
         return;
-
     }
 
     dailyBrief();
-
 });
 
 
@@ -943,6 +1147,9 @@ window.onload = () => {
 
     // Fetch saved article IDs in background to mark saved cards
     fetchSavedArticlesList();
+
+    // Pre-fetch For You recommendations silently in background for instant 0ms tab switching
+    loadPersonalized({ silent: true });
 
     // Fetch latest news immediately
     fetchNews(`${BASE_URL}/news`);
