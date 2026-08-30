@@ -25,6 +25,7 @@
         <div class="view-tabs">
             <button id="latestTabBtn" class="tab active">Latest</button>
             <button id="forYouTabBtn" class="tab">For You</button>
+            <button id="savedTabBtn" class="tab">Saved</button>
         </div>
 
         <!-- Controls -->
@@ -97,21 +98,13 @@
             <pre id="aiOutput"></pre>
         </section>
 
-        <!-- For You header -->
-
-        <div id="forYouHead" class="foryou-head hidden">
-            <div>
-                <h2>For You</h2>
-                <p id="forYouSubtitle">Based on what you've been reading</p>
-            </div>
-            <button id="refreshForYouBtn" class="btn btn-ghost">
-                Refresh For You
-            </button>
-        </div>
-
         <!-- For You state message (empty / error) -->
 
         <div id="forYouState" class="state-message hidden"></div>
+
+        <!-- Saved state message (empty / error) -->
+
+        <div id="savedState" class="state-message hidden"></div>
 
         <!-- News -->
 

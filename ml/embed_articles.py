@@ -86,6 +86,9 @@ for article in articles:
             payload={
                 "articleId": article_id,
                 "title": title,
+                "description": description,
+                "image": article.get("image", ""),
+                "url": article.get("url", ""),
                 "category": article.get("category", ""),
                 "source": article.get("source", ""),
                 "publishedAt": article.get("publishedAt", ""),

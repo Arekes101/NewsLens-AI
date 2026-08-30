@@ -306,21 +306,17 @@ for result in results:
 
     semantic_score = result.score
 
-    category = payload.get(
-        "category"
-    )
+    article_id = payload.get("articleId")
 
-    published_at = payload.get(
-        "publishedAt"
-    )
+    article_doc = articles_collection.find_one({"articleId": article_id}) if article_id else None
 
-    interest_score = get_interest_score(
-        category
-    )
+    category = payload.get("category") or (article_doc.get("category") if article_doc else "")
 
-    recency_score = get_recency_score(
-        published_at
-    )
+    published_at = payload.get("publishedAt") or (article_doc.get("publishedAt") if article_doc else "")
+
+    interest_score = get_interest_score(category)
+
+    recency_score = get_recency_score(published_at)
 
     # Sprint 8 ranking formula
     final_score = (
@@ -329,34 +325,25 @@ for result in results:
         + 0.15 * recency_score
     )
 
+    image = (article_doc.get("image") if article_doc else "") or payload.get("image") or ""
+    description = (article_doc.get("description") if article_doc else "") or payload.get("description") or ""
+    url = (article_doc.get("url") if article_doc else "") or payload.get("url") or ""
+    title = payload.get("title") or (article_doc.get("title") if article_doc else "")
+    source = payload.get("source") or (article_doc.get("source") if article_doc else "")
+
     ranked.append({
-
-        "articleId":
-            payload.get("articleId"),
-
-        "title":
-            payload.get("title"),
-
-        "category":
-            category,
-
-        "source":
-            payload.get("source"),
-
-        "publishedAt":
-            published_at,
-
-        "score":
-            final_score,
-
-        "semanticScore":
-            semantic_score,
-
-        "interestScore":
-            interest_score,
-
-        "recencyScore":
-            recency_score
+        "articleId": article_id,
+        "title": title,
+        "description": description,
+        "image": image,
+        "url": url,
+        "category": category,
+        "source": source,
+        "publishedAt": published_at,
+        "score": final_score,
+        "semanticScore": semantic_score,
+        "interestScore": interest_score,
+        "recencyScore": recency_score
     })
 
 

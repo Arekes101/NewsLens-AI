@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = window.location.origin + "/api";
 
 const USER_ID = "demo-user";
 
@@ -26,16 +26,17 @@ const controlsSection = document.getElementById("controlsSection");
 
 const latestTabBtn = document.getElementById("latestTabBtn");
 const forYouTabBtn = document.getElementById("forYouTabBtn");
+const savedTabBtn = document.getElementById("savedTabBtn");
 
-const forYouHead = document.getElementById("forYouHead");
-const forYouSubtitle = document.getElementById("forYouSubtitle");
-const refreshForYouBtn = document.getElementById("refreshForYouBtn");
 const forYouState = document.getElementById("forYouState");
+const savedState = document.getElementById("savedState");
 
 let articles = [];
 let recommendations = [];
+let savedArticles = [];
+let savedArticleIds = new Set();
 
-let currentView = "latest"; // "latest" | "forYou"
+let currentView = "latest"; // "latest" | "forYou" | "saved"
 
 /* ------------------------
    HELPERS
@@ -73,9 +74,12 @@ function setActiveTab(view) {
 
     latestTabBtn.classList.toggle("active", view === "latest");
     forYouTabBtn.classList.toggle("active", view === "forYou");
+    savedTabBtn.classList.toggle("active", view === "saved");
 
     controlsSection.classList.toggle("hidden", view !== "latest");
-    forYouHead.classList.toggle("hidden", view !== "forYou");
+
+    if (view !== "forYou") hideForYouState();
+    if (view !== "saved") hideSavedState();
 }
 
 /* ------------------------
@@ -304,10 +308,17 @@ async function dailyBrief() {
 async function fetchNews(url) {
 
     showLoader();
+    hideForYouState();
+    hideSavedState();
+    newsContainer.innerHTML = "";
 
     try {
 
         const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Status ${res.status}`);
+        }
 
         const data = await res.json();
 
@@ -317,9 +328,8 @@ async function fetchNews(url) {
 
     } catch (err) {
 
-        alert("Failed to fetch news.");
-
-        console.log(err);
+        console.error("fetchNews failed:", err);
+        newsContainer.innerHTML = "<div class='empty-state'>Failed to fetch news. Make sure your server is running on port 5000.</div>";
 
     } finally {
 
@@ -524,17 +534,37 @@ ${article.description ?? ""}
 
     // Save
 
-    card.querySelector(".saveBtn")
-        .addEventListener("click", async (e) => {
+    const isInitiallySaved = savedArticleIds.has(articleId);
+    const saveBtn = card.querySelector(".saveBtn");
+    if (isInitiallySaved) {
+        saveBtn.classList.add("active");
+        saveBtn.textContent = "★ Saved";
+    }
 
-            const btn = e.currentTarget;
+    saveBtn.addEventListener("click", async (e) => {
 
-            await sendInteraction(articleId, "save");
+        const btn = e.currentTarget;
+        const currentlySaved = savedArticleIds.has(articleId);
 
+        if (currentlySaved) {
+            await removeArticleFromDB(articleId);
+            btn.classList.remove("active");
+            btn.textContent = "☆ Save";
+
+            if (currentView === "saved") {
+                card.remove();
+                savedArticles = savedArticles.filter(a => (a.articleId || a.id || a.url || a._id) !== articleId);
+                if (savedArticles.length === 0) {
+                    showSavedState("You haven't saved any articles yet.<br>Click Save on any article card to bookmark it here.");
+                }
+            }
+        } else {
+            await saveArticleToDB(article);
             btn.classList.add("active");
             btn.textContent = "★ Saved";
+        }
 
-        });
+    });
 
     // Share
 
@@ -594,6 +624,8 @@ ${article.description ?? ""}
 
 function renderNews() {
 
+    hideForYouState();
+    hideSavedState();
     newsContainer.innerHTML = "";
 
     if (articles.length === 0) {
@@ -710,38 +742,121 @@ async function loadPersonalized() {
    TAB SWITCHING
 -------------------------*/
 
-latestTabBtn.addEventListener("click", () => {
+/* ------------------------
+   SAVED ARTICLES API & RENDER
+-------------------------*/
 
-    if (currentView === "latest") return;
+async function fetchSavedArticlesList() {
+    try {
+        const res = await fetch(`${BASE_URL}/saved/${USER_ID}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const list = data.articles || [];
+        savedArticles = list;
+        savedArticleIds = new Set(list.map(a => a.articleId));
+        return list;
+    } catch (err) {
+        console.error("fetchSavedArticlesList error:", err);
+        return [];
+    }
+}
 
-    setActiveTab("latest");
+async function saveArticleToDB(article) {
+    const articleId = getArticleId(article);
+    if (!articleId) return;
 
-    hideForYouState();
+    try {
+        await fetch(`${BASE_URL}/saved`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId: USER_ID,
+                articleId: articleId,
+                title: article.title || "Untitled",
+                description: article.description || "",
+                image: article.image || "",
+                url: article.url || "",
+                source: article.source || "",
+                publishedAt: article.publishedAt || ""
+            })
+        });
+        savedArticleIds.add(articleId);
+        sendInteraction(articleId, "save");
+    } catch (err) {
+        console.error("saveArticleToDB error:", err);
+    }
+}
 
-    renderNews();
+async function removeArticleFromDB(articleId) {
+    if (!articleId) return;
+    try {
+        await fetch(`${BASE_URL}/saved/${USER_ID}/${encodeURIComponent(articleId)}`, {
+            method: "DELETE"
+        });
+        savedArticleIds.delete(articleId);
+    } catch (err) {
+        console.error("removeArticleFromDB error:", err);
+    }
+}
 
-});
+function showSavedState(html, isError) {
+    savedState.innerHTML = html;
+    savedState.classList.remove("hidden");
+    savedState.classList.toggle("error", !!isError);
+    newsContainer.innerHTML = "";
+}
 
-forYouTabBtn.addEventListener("click", () => {
+function hideSavedState() {
+    savedState.classList.add("hidden");
+    savedState.innerHTML = "";
+}
 
-    if (currentView === "forYou") {
+function renderSavedArticles() {
+    newsContainer.innerHTML = "";
+
+    if (savedArticles.length === 0) {
+        showSavedState("You haven't saved any articles yet.<br>Click Save on any article card to bookmark it here.");
         return;
     }
 
-    setActiveTab("forYou");
+    hideSavedState();
 
-    if (recommendations.length > 0) {
-        renderRecommendations();
-    } else {
-        loadPersonalized();
+    savedArticles.forEach((art) => {
+        const card = buildCard(art);
+        newsContainer.appendChild(card);
+    });
+}
+
+async function loadSavedArticles() {
+    showLoader();
+    hideSavedState();
+    newsContainer.innerHTML = "";
+
+    try {
+        await fetchSavedArticlesList();
+        renderSavedArticles();
+    } catch (err) {
+        showSavedState(`Couldn't load saved articles.<br><button class="retry-btn" id="savedRetryBtn">Try again</button>`, true);
+        const retryBtn = document.getElementById("savedRetryBtn");
+        if (retryBtn) retryBtn.addEventListener("click", loadSavedArticles);
+    } finally {
+        hideLoader();
     }
+}
 
+latestTabBtn.addEventListener("click", () => {
+    setActiveTab("latest");
+    fetchNews(`${BASE_URL}/news`);
 });
 
-refreshForYouBtn.addEventListener("click", () => {
-
+forYouTabBtn.addEventListener("click", () => {
+    setActiveTab("forYou");
     loadPersonalized();
+});
 
+savedTabBtn.addEventListener("click", () => {
+    setActiveTab("saved");
+    loadSavedArticles();
 });
 
 /* ------------------------
@@ -826,6 +941,10 @@ window.onload = () => {
 
     setActiveTab("latest");
 
+    // Fetch saved article IDs in background to mark saved cards
+    fetchSavedArticlesList();
+
+    // Fetch latest news immediately
     fetchNews(`${BASE_URL}/news`);
 
 };
