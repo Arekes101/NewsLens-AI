@@ -7,6 +7,7 @@ import newsRoutes from "./routes/newsRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import interactionRoutes from "./routes/interactionRoutes.js";
 import savedArticleRoutes from "./routes/savedArticleRoutes.js";
+import recommendationRoutes from "./routes/recommendationRoutes.js";
 
 const app = express();
 
@@ -36,5 +37,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/interactions", interactionRoutes);
 
 app.use("/api/saved", savedArticleRoutes);
+
+app.use("/api/recommendations", recommendationRoutes);
 
 export default app;

@@ -69,3 +69,31 @@ Articles:
 ${text}
 `;
 };
+
+export const recommendationRerankPrompt = (userInteractions, candidateArticles) => {
+    const interactionsText = userInteractions.length > 0
+        ? userInteractions.map((art, i) => `${i + 1}. Title: ${art.title || "Untitled"}, Category: ${art.category || ""}`).join("\n")
+        : "No recent interactions. General high-quality news preferences.";
+
+    const candidatesText = candidateArticles.map((art, i) => `[Index ${i}] Title: ${art.title || "Untitled"}\nDescription: ${art.description || ""}`).join("\n\n");
+
+    return `
+You are a Real-Time Explainable AI (XAI) Recommendation Reranker.
+
+User's Recent Interaction History:
+${interactionsText}
+
+Candidate News Articles Pool:
+${candidatesText}
+
+Instructions:
+Evaluate each candidate article against the User's Interaction History.
+Return a RAW JSON array of objects with fields "index" (integer), "score" (integer 0-100), and "reason" (1 concise sentence starting with "Recommended because...").
+Do NOT include markdown formatting, backticks, or extra text.
+
+Example JSON output:
+[
+  {"index": 0, "score": 92, "reason": "Recommended because you saved articles on technology developments."}
+]
+`;
+};

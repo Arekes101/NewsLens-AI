@@ -1,28 +1,4 @@
 import Interaction from "../models/interactionModel.js";
-import { execFile } from "child_process";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const pythonPath = path.join(
-  __dirname,
-  "../../../ml/venv/Scripts/python.exe"
-);
-
-const scriptPath = path.join(
-  __dirname,
-  "../../../ml/user_representation.py"
-);
-
-const VECTOR_UPDATE_EVENTS = new Set([
-  "like",
-  "save",
-  "share",
-  "ai_summary",
-  "ai_chat",
-]);
 
 export const createInteraction = async ({
   userId,
@@ -37,6 +13,8 @@ export const createInteraction = async ({
     event,
     duration,
   });
+
+  console.log(`📌 [NEW INTERACTION LOGGED] Event: "${event}" | Article ID: "${articleId}" | User: "${userId}"`);
 
   return interaction;
 };

@@ -27,19 +27,23 @@ const dailyBriefBtn = document.getElementById("dailyBriefBtn");
 const controlsSection = document.getElementById("controlsSection");
 
 const latestTabBtn = document.getElementById("latestTabBtn");
+const forYouTabBtn = document.getElementById("forYouTabBtn");
 const savedTabBtn = document.getElementById("savedTabBtn");
 const refreshBtn = document.getElementById("refreshBtn");
 const savedState = document.getElementById("savedState");
+const forYouState = document.getElementById("forYouState");
 
 let articles = [];
+let recommendations = [];
 let savedArticles = [];
 let savedArticleIds = new Set();
 
 let currentLatestUrl = `${BASE_URL}/news`;
 let hasLoadedLatest = false;
+let hasLoadedForYou = false;
 let hasLoadedSaved = false;
 
-let currentView = "latest"; // "latest" | "saved"
+let currentView = "latest"; // "latest" | "forYou" | "saved"
 
 /* ------------------------
    HELPERS
@@ -123,11 +127,27 @@ function setActiveTab(view) {
     currentView = view;
 
     latestTabBtn.classList.toggle("active", view === "latest");
+    if (forYouTabBtn) forYouTabBtn.classList.toggle("active", view === "forYou");
     savedTabBtn.classList.toggle("active", view === "saved");
 
     controlsSection.classList.toggle("hidden", view !== "latest");
 
     if (view !== "saved") hideSavedState();
+    if (view !== "forYou") hideForYouState();
+}
+
+function showForYouState(html, isError) {
+    if (!forYouState) return;
+    forYouState.innerHTML = html;
+    forYouState.classList.remove("hidden");
+    forYouState.classList.toggle("error", !!isError);
+    newsContainer.innerHTML = "";
+}
+
+function hideForYouState() {
+    if (!forYouState) return;
+    forYouState.innerHTML = "";
+    forYouState.classList.add("hidden");
 }
 
 /* ------------------------
@@ -428,11 +448,21 @@ function buildCard(article) {
 
     const hasUrl = !!article.url;
 
+    const matchBadgeHtml = typeof article.score === "number"
+        ? `<div class="match-badge">🎯 ${article.score}% Semantic Match</div>`
+        : "";
+
+    const xaiBoxHtml = article.aiReason
+        ? `<div class="xai-box"><strong>Why For You</strong>${article.aiReason}</div>`
+        : "";
+
     card.innerHTML = `
 
         <img src="${image}" alt="news">
 
         <div class="card-content">
+
+            ${matchBadgeHtml}
 
             <div class="meta">
 
@@ -443,6 +473,8 @@ function buildCard(article) {
             </div>
 
             <h2>${article.title}</h2>
+
+            ${xaiBoxHtml}
 
             <p>${article.description ?? "No description available."}</p>
 
@@ -819,6 +851,55 @@ async function loadSavedArticles(opts) {
     }
 }
 
+async function loadPersonalized(opts) {
+    opts = opts || {};
+    const isBackgroundRefresh = !!(opts.forceRefresh && recommendations.length > 0);
+
+    if (!isBackgroundRefresh) {
+        showLoader();
+        hideSavedState();
+        hideForYouState();
+        newsContainer.innerHTML = "";
+    } else {
+        if (refreshBtn) refreshBtn.classList.add("refreshing");
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/recommendations/${USER_ID}`);
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        const data = await res.json();
+        recommendations = data.articles || [];
+        hasLoadedForYou = true;
+        renderRecommendations();
+    } catch (err) {
+        console.error("loadPersonalized error:", err);
+        if (!isBackgroundRefresh) {
+            showForYouState(`Could not load personalized recommendations (${err.message || "Network Error"}).<br><button class="retry-btn" id="forYouRetryBtn">Try Again</button>`, true);
+            const retryBtn = document.getElementById("forYouRetryBtn");
+            if (retryBtn) retryBtn.addEventListener("click", () => loadPersonalized(opts));
+        }
+    } finally {
+        hideLoader();
+        if (refreshBtn) refreshBtn.classList.remove("refreshing");
+    }
+}
+
+function renderRecommendations() {
+    hideSavedState();
+    hideForYouState();
+    newsContainer.innerHTML = "";
+
+    if (recommendations.length === 0) {
+        showForYouState("No personalized recommendations available yet.<br>Interact with news in the Latest tab or save articles to personalize your feed.");
+        return;
+    }
+
+    recommendations.forEach((article) => {
+        const card = buildCard(article);
+        newsContainer.appendChild(card);
+    });
+}
+
 latestTabBtn.addEventListener("click", () => {
     const wasActive = currentView === "latest";
     setActiveTab("latest");
@@ -828,6 +909,18 @@ latestTabBtn.addEventListener("click", () => {
         renderNews();
     }
 });
+
+if (forYouTabBtn) {
+    forYouTabBtn.addEventListener("click", () => {
+        const wasActive = currentView === "forYou";
+        setActiveTab("forYou");
+        if (wasActive || !hasLoadedForYou || recommendations.length === 0) {
+            loadPersonalized({ forceRefresh: wasActive });
+        } else {
+            renderRecommendations();
+        }
+    });
+}
 
 savedTabBtn.addEventListener("click", () => {
     const wasActive = currentView === "saved";
@@ -843,6 +936,8 @@ if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
         if (currentView === "latest") {
             fetchNews(currentLatestUrl, { forceRefresh: true });
+        } else if (currentView === "forYou") {
+            loadPersonalized({ forceRefresh: true });
         } else if (currentView === "saved") {
             loadSavedArticles({ forceRefresh: true });
         }

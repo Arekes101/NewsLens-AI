@@ -776,3 +776,43 @@ body {
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
+
+/* ---------------------------------
+   Explainable AI (XAI) Badges & Boxes
+-----------------------------------*/
+
+.match-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #1f4b43, #2b695e);
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    margin-bottom: 8px;
+}
+
+.xai-box {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin: 10px 0 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ink);
+}
+
+.xai-box strong {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 2px;
+}
