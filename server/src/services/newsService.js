@@ -1,41 +1,12 @@
 import { fetchNews } from "../providers/newsDataProvider.js";
 import { mapArticle } from "../mappers/articleMapper.js";
-import Article from "../models/articleModel.js";
-
-const saveArticles = async (articles) => {
-  for (const article of articles) {
-    await Article.findOneAndUpdate(
-      { articleId: article.id },
-      {
-        articleId: article.id,
-        title: article.title,
-        description: article.description || "",
-        image: article.image || "",
-        url: article.url || "",
-        source: article.source || "",
-        category: article.category || "",
-        country: article.country || "",
-        language: article.language || "",
-        publishedAt: article.publishedAt || "",
-      },
-      {
-        upsert: true,
-        new: true,
-      }
-    );
-  }
-};
 
 const processArticles = async (responseObj) => {
   const rawArticles = responseObj.results || [];
-  const nextPage = responseObj.nextPage || null;
   const mappedArticles = rawArticles.map(mapArticle);
-
-  await saveArticles(mappedArticles);
 
   return {
     articles: mappedArticles,
-    nextPage,
   };
 };
 

@@ -13,13 +13,17 @@ export const fetchNews = async ({
   try {
     const params = {
       apikey: process.env.NEWSDATA_API_KEY,
-      language,
-      country,
       size: newsConfig.size,
     };
 
-    if (q) params.q = q;
-    if (category) params.category = category;
+    if (q) {
+      params.q = q;
+    } else {
+      if (language) params.language = language;
+      if (country) params.country = country;
+      if (category) params.category = category;
+    }
+
     if (page) params.page = page;
 
     const response = await axios.get(BASE_URL, { params });
@@ -29,8 +33,7 @@ export const fetchNews = async ({
       nextPage: response.data.nextPage || null,
     };
   } catch (error) {
-    console.log("NewsData Error:");
-    console.log(error.response?.data);
+    console.error("NewsData Error:", error.response?.data || error.message);
     throw error;
   }
 };

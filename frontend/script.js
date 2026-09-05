@@ -1,4 +1,6 @@
-const BASE_URL = window.location.origin + "/api";
+const BASE_URL = (window.location.origin && window.location.origin.startsWith("http"))
+    ? window.location.origin + "/api"
+    : "http://localhost:5000/api";
 
 const USER_ID = "demo-user";
 
@@ -25,41 +27,19 @@ const dailyBriefBtn = document.getElementById("dailyBriefBtn");
 const controlsSection = document.getElementById("controlsSection");
 
 const latestTabBtn = document.getElementById("latestTabBtn");
-const forYouTabBtn = document.getElementById("forYouTabBtn");
 const savedTabBtn = document.getElementById("savedTabBtn");
 const refreshBtn = document.getElementById("refreshBtn");
-const loadMoreContainer = document.getElementById("loadMoreContainer");
-const loadMoreBtn = document.getElementById("loadMoreBtn");
-
-const forYouState = document.getElementById("forYouState");
 const savedState = document.getElementById("savedState");
 
-const BATCH_SIZE = 9;
-let visibleCount = BATCH_SIZE;
-let nextPageToken = null;
-let recOffset = 0;
-
 let articles = [];
-let recommendations = [];
 let savedArticles = [];
 let savedArticleIds = new Set();
 
 let currentLatestUrl = `${BASE_URL}/news`;
 let hasLoadedLatest = false;
-let hasLoadedForYou = false;
 let hasLoadedSaved = false;
 
-let currentView = "latest"; // "latest" | "forYou" | "saved"
-
-function updateLoadMoreButton(hasMore) {
-    if (loadMoreContainer) {
-        if (hasMore) {
-            loadMoreContainer.classList.remove("hidden");
-        } else {
-            loadMoreContainer.classList.add("hidden");
-        }
-    }
-}
+let currentView = "latest"; // "latest" | "saved"
 
 /* ------------------------
    HELPERS
@@ -143,12 +123,10 @@ function setActiveTab(view) {
     currentView = view;
 
     latestTabBtn.classList.toggle("active", view === "latest");
-    forYouTabBtn.classList.toggle("active", view === "forYou");
     savedTabBtn.classList.toggle("active", view === "saved");
 
     controlsSection.classList.toggle("hidden", view !== "latest");
 
-    if (view !== "forYou") hideForYouState();
     if (view !== "saved") hideSavedState();
 }
 
@@ -351,12 +329,10 @@ async function chat(text, question, articleId) {
 
 async function dailyBrief() {
     let currentArticles = articles;
-    if (currentView === "forYou" && recommendations.length > 0) {
-        currentArticles = recommendations;
-    } else if (currentView === "saved" && savedArticles.length > 0) {
+    if (currentView === "saved" && savedArticles.length > 0) {
         currentArticles = savedArticles;
     } else if (currentArticles.length === 0) {
-        currentArticles = recommendations.length > 0 ? recommendations : savedArticles;
+        currentArticles = savedArticles;
     }
 
     if (!currentArticles || currentArticles.length === 0) {
@@ -390,7 +366,6 @@ async function fetchNews(url, opts) {
 
     if (!isBackgroundRefresh) {
         showLoader();
-        hideForYouState();
         hideSavedState();
         newsContainer.innerHTML = "";
     } else {
@@ -413,7 +388,17 @@ async function fetchNews(url, opts) {
     } catch (err) {
         console.error("fetchNews failed:", err);
         if (!isBackgroundRefresh) {
-            newsContainer.innerHTML = "<div class='empty-state'>Failed to fetch news. Make sure your server is running on port 5000.</div>";
+            newsContainer.innerHTML = `
+                <div class='empty-state'>
+                    <p>Failed to fetch news (${err.message || "Network Error"}).</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 6px;">Make sure your server is running on port 5000 ('npm start' in the server folder).</p>
+                    <button class="retry-btn" id="newsRetryBtn" style="margin-top: 12px;">Try Again</button>
+                </div>
+            `;
+            const retryBtn = document.getElementById("newsRetryBtn");
+            if (retryBtn) {
+                retryBtn.addEventListener("click", () => fetchNews(url));
+            }
         }
     } finally {
         hideLoader();
@@ -422,12 +407,10 @@ async function fetchNews(url, opts) {
 }
 
 /* ------------------------
-   CARD BUILDING (shared by Latest + For You)
+   CARD BUILDING
 -------------------------*/
 
-function buildCard(article, opts) {
-
-    const isRecommendation = !!(opts && opts.isRecommendation);
+function buildCard(article) {
 
     const card = document.createElement("div");
 
@@ -469,10 +452,6 @@ function buildCard(article, opts) {
                class="readLink">
                Read Full Article
             </a>
-            ` : ""}
-
-            ${isRecommendation && typeof article.score === "number" ? `
-            <div class="score-badge">Match score: ${article.score}</div>
             ` : ""}
 
             <div class="buttons">
@@ -704,127 +683,23 @@ ${article.description ?? ""}
    RENDER: LATEST NEWS
 -------------------------*/
 
-function renderNews() {
+/* ------------------------
+   RENDER: LATEST NEWS
+-------------------------*/
 
-    hideForYouState();
+function renderNews() {
     hideSavedState();
     newsContainer.innerHTML = "";
 
     if (articles.length === 0) {
         newsContainer.innerHTML = "<p class='empty-state'>No news found</p>";
-        updateLoadMoreButton(false);
         return;
     }
 
-    const visibleArticles = articles.slice(0, visibleCount);
-    visibleArticles.forEach((article) => {
-        const card = buildCard(article, { isRecommendation: false });
+    articles.forEach((article) => {
+        const card = buildCard(article);
         newsContainer.appendChild(card);
     });
-
-    updateLoadMoreButton(!!nextPageToken || visibleCount < articles.length);
-
-}
-
-/* ------------------------
-   RENDER: FOR YOU
--------------------------*/
-
-function showForYouState(html, isError) {
-
-    forYouState.innerHTML = html;
-    forYouState.classList.remove("hidden");
-    forYouState.classList.toggle("error", !!isError);
-
-    newsContainer.innerHTML = "";
-
-}
-
-function hideForYouState() {
-
-    forYouState.classList.add("hidden");
-    forYouState.innerHTML = "";
-
-}
-
-function renderRecommendations() {
-
-    newsContainer.innerHTML = "";
-
-    if (recommendations.length === 0) {
-
-        showForYouState(
-            "Your personalized feed is being built.<br>Read, like, or save a few articles to personalize it."
-        );
-        updateLoadMoreButton(false);
-        return;
-    }
-
-    hideForYouState();
-
-    const visibleRecs = recommendations.slice(0, visibleCount);
-    visibleRecs.forEach((rec) => {
-
-        const card = buildCard(rec, { isRecommendation: true });
-
-        newsContainer.appendChild(card);
-
-    });
-
-    updateLoadMoreButton(true);
-
-}
-
-async function loadPersonalized(opts) {
-    opts = opts || {};
-    const isSilent = !!opts.silent;
-    const isBackgroundRefresh = !!(opts.forceRefresh && recommendations.length > 0) || isSilent;
-
-    if (!isBackgroundRefresh && currentView === "forYou") {
-        showLoader();
-        hideForYouState();
-        newsContainer.innerHTML = "";
-    } else if (opts.forceRefresh && refreshBtn && currentView === "forYou") {
-        refreshBtn.classList.add("refreshing");
-    }
-
-    try {
-        const res = await fetch(
-            `${BASE_URL}/recommendations/personalized/${USER_ID}`
-        );
-
-        if (!res.ok) {
-            throw new Error(`Request failed with status ${res.status}`);
-        }
-
-        const data = await res.json();
-        recommendations = data.recommendations || [];
-        recOffset = recommendations.length;
-        hasLoadedForYou = true;
-
-        if (currentView === "forYou") {
-            renderRecommendations();
-        }
-
-    } catch (err) {
-        console.log(err);
-        if (!isBackgroundRefresh && currentView === "forYou") {
-            recommendations = [];
-            showForYouState(
-                `Couldn't load your personalized feed.<br><button class="retry-btn" id="forYouRetryBtn">Try again</button>`,
-                true
-            );
-            const retryBtn = document.getElementById("forYouRetryBtn");
-            if (retryBtn) {
-                retryBtn.addEventListener("click", loadPersonalized);
-            }
-        }
-    } finally {
-        if (currentView === "forYou") {
-            hideLoader();
-            if (refreshBtn) refreshBtn.classList.remove("refreshing");
-        }
-    }
 }
 
 /* ------------------------
@@ -896,8 +771,8 @@ function showSavedState(html, isError) {
 }
 
 function hideSavedState() {
-    savedState.classList.add("hidden");
     savedState.innerHTML = "";
+    savedState.classList.add("hidden");
 }
 
 function renderSavedArticles() {
@@ -905,19 +780,15 @@ function renderSavedArticles() {
 
     if (savedArticles.length === 0) {
         showSavedState("You haven't saved any articles yet.<br>Click Save on any article card to bookmark it here.");
-        updateLoadMoreButton(0);
         return;
     }
 
     hideSavedState();
 
-    const visibleSaved = savedArticles.slice(0, visibleCount);
-    visibleSaved.forEach((art) => {
+    savedArticles.forEach((art) => {
         const card = buildCard(art);
         newsContainer.appendChild(card);
     });
-
-    updateLoadMoreButton(savedArticles.length);
 }
 
 async function loadSavedArticles(opts) {
@@ -951,7 +822,6 @@ async function loadSavedArticles(opts) {
 latestTabBtn.addEventListener("click", () => {
     const wasActive = currentView === "latest";
     setActiveTab("latest");
-    visibleCount = BATCH_SIZE;
     if (wasActive || !hasLoadedLatest || articles.length === 0) {
         fetchNews(currentLatestUrl, { forceRefresh: wasActive });
     } else {
@@ -959,21 +829,9 @@ latestTabBtn.addEventListener("click", () => {
     }
 });
 
-forYouTabBtn.addEventListener("click", () => {
-    const wasActive = currentView === "forYou";
-    setActiveTab("forYou");
-    visibleCount = BATCH_SIZE;
-    if (wasActive || !hasLoadedForYou || recommendations.length === 0) {
-        loadPersonalized({ forceRefresh: wasActive });
-    } else {
-        renderRecommendations();
-    }
-});
-
 savedTabBtn.addEventListener("click", () => {
     const wasActive = currentView === "saved";
     setActiveTab("saved");
-    visibleCount = BATCH_SIZE;
     if (wasActive || !hasLoadedSaved) {
         loadSavedArticles({ forceRefresh: wasActive });
     } else {
@@ -983,78 +841,10 @@ savedTabBtn.addEventListener("click", () => {
 
 if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
-        visibleCount = BATCH_SIZE;
         if (currentView === "latest") {
             fetchNews(currentLatestUrl, { forceRefresh: true });
-        } else if (currentView === "forYou") {
-            loadPersonalized({ forceRefresh: true });
         } else if (currentView === "saved") {
             loadSavedArticles({ forceRefresh: true });
-        }
-    });
-}
-
-if (loadMoreBtn) {
-    loadMoreBtn.addEventListener("click", async () => {
-        if (currentView === "latest") {
-            if (visibleCount < articles.length) {
-                visibleCount += BATCH_SIZE;
-                renderNews();
-            } else if (nextPageToken) {
-                const origText = loadMoreBtn.innerText;
-                loadMoreBtn.innerText = "Loading more...";
-                loadMoreBtn.disabled = true;
-                try {
-                    const delimiter = currentLatestUrl.includes("?") ? "&" : "?";
-                    const pageUrl = `${currentLatestUrl}${delimiter}page=${encodeURIComponent(nextPageToken)}`;
-                    const res = await fetch(pageUrl);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const newArticles = data.articles || [];
-                        nextPageToken = data.nextPage || null;
-                        articles = [...articles, ...newArticles];
-                        visibleCount += BATCH_SIZE;
-                        renderNews();
-                    }
-                } catch (err) {
-                    console.error("Failed to load next page:", err);
-                } finally {
-                    loadMoreBtn.innerText = origText;
-                    loadMoreBtn.disabled = false;
-                }
-            }
-        } else if (currentView === "forYou") {
-            if (visibleCount < recommendations.length) {
-                visibleCount += BATCH_SIZE;
-                renderRecommendations();
-            } else {
-                const origText = loadMoreBtn.innerText;
-                loadMoreBtn.innerText = "Loading more...";
-                loadMoreBtn.disabled = true;
-                try {
-                    const res = await fetch(`${BASE_URL}/recommendations/personalized/${USER_ID}?offset=${recOffset}&limit=9`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const newRecs = data.recommendations || [];
-                        if (newRecs.length > 0) {
-                            recommendations = [...recommendations, ...newRecs];
-                            recOffset += newRecs.length;
-                            visibleCount += BATCH_SIZE;
-                            renderRecommendations();
-                        } else {
-                            updateLoadMoreButton(false);
-                        }
-                    }
-                } catch (err) {
-                    console.error("Failed to load recommendations page:", err);
-                } finally {
-                    loadMoreBtn.innerText = origText;
-                    loadMoreBtn.disabled = false;
-                }
-            }
-        } else if (currentView === "saved") {
-            visibleCount += BATCH_SIZE;
-            renderSavedArticles();
         }
     });
 }
@@ -1104,20 +894,6 @@ searchBtn.addEventListener("click", () => {
 
 
 dailyBriefBtn.addEventListener("click", () => {
-    let currentArticles = articles;
-    if (currentView === "forYou" && recommendations.length > 0) {
-        currentArticles = recommendations;
-    } else if (currentView === "saved" && savedArticles.length > 0) {
-        currentArticles = savedArticles;
-    } else if (currentArticles.length === 0) {
-        currentArticles = recommendations.length > 0 ? recommendations : savedArticles;
-    }
-
-    if (!currentArticles || currentArticles.length === 0) {
-        alert("Load some news first.");
-        return;
-    }
-
     dailyBrief();
 });
 
@@ -1147,9 +923,6 @@ window.onload = () => {
 
     // Fetch saved article IDs in background to mark saved cards
     fetchSavedArticlesList();
-
-    // Pre-fetch For You recommendations silently in background for instant 0ms tab switching
-    loadPersonalized({ silent: true });
 
     // Fetch latest news immediately
     fetchNews(`${BASE_URL}/news`);

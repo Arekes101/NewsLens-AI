@@ -30,44 +30,13 @@ export const createInteraction = async ({
   event,
   duration = 0,
 }) => {
-
-  // 1. Save interaction first
+  // Save interaction to MongoDB
   const interaction = await Interaction.create({
     userId,
     articleId,
     event,
     duration,
   });
-
-  // 2. Update user representation for meaningful events
-  if (VECTOR_UPDATE_EVENTS.has(event)) {
-
-    execFile(
-      pythonPath,
-      [scriptPath, userId],
-      (error, stdout, stderr) => {
-
-        if (error) {
-          console.error(
-            "User vector update failed:",
-            error
-          );
-
-          console.error(
-            stderr
-          );
-
-          return;
-        }
-
-        console.log(
-          `User vector updated for ${userId}`
-        );
-
-        console.log(stdout);
-      }
-    );
-  }
 
   return interaction;
 };
