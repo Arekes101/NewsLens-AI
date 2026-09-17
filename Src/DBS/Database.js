@@ -1,0 +1,17 @@
+const Database=require('better-sqlite3');
+const path=require('path');
+const fs=require('fs');
+const dir=path.join(process.cwd(),'data'); fs.mkdirSync(dir,{recursive:true});
+const db=new Database(path.join(dir,'world-in-brief.db'));
+db.pragma('journal_mode = WAL');
+db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE,email TEXT UNIQUE,password_hash TEXT,role TEXT DEFAULT 'user',preferred_language TEXT DEFAULT 'English',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS articles(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,description TEXT,source TEXT,url TEXT UNIQUE,published_at TEXT,category TEXT,sentiment TEXT DEFAULT 'neutral',trust_score REAL DEFAULT 0.75,is_breaking INTEGER DEFAULT 0,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bookmarks(user_id INTEGER,article_id INTEGER,created_at TEXT DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,article_id));
+CREATE TABLE IF NOT EXISTS history(user_id INTEGER,article_id INTEGER,read_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS preferences(user_id INTEGER,category TEXT,PRIMARY KEY(user_id,category));
+CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,user_id INTEGER,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT,sender TEXT,content TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS agent_runs(id TEXT PRIMARY KEY,user_id INTEGER,query TEXT,plan TEXT,result TEXT,status TEXT,duration_ms INTEGER,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS feedback(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,type TEXT,content TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS metrics(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,value REAL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
+module.exports=db;

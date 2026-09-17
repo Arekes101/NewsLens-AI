@@ -1,32 +1,41 @@
 import { fetchNews } from "../providers/newsDataProvider.js";
 import { mapArticle } from "../mappers/articleMapper.js";
 
-export const getNews = async (category = "") => {
-  const articles = await fetchNews({ category });
+const processArticles = async (responseObj) => {
+  const rawArticles = responseObj.results || [];
+  const mappedArticles = rawArticles.map(mapArticle);
 
-  return articles.map(mapArticle);
+  return {
+    articles: mappedArticles,
+  };
 };
 
-export const searchNews = async (query) => {
-  const articles = await fetchNews({ q: query });
+export const getNews = async (category = "", page = "") => {
+  const resData = await fetchNews({ category, page });
 
-  return articles.map(mapArticle);
+  return processArticles(resData);
 };
 
-export const getNewsByCountry = async (country) => {
-  const articles = await fetchNews({ country });
+export const searchNews = async (query, page = "") => {
+  const resData = await fetchNews({ q: query, page });
 
-  return articles.map(mapArticle);
+  return processArticles(resData);
 };
 
-export const getNewsByLanguage = async (language) => {
-  const articles = await fetchNews({ language });
+export const getNewsByCountry = async (country, page = "") => {
+  const resData = await fetchNews({ country, page });
 
-  return articles.map(mapArticle);
+  return processArticles(resData);
 };
 
-export const getNewsByCategory = async (category) => {
-  const articles = await fetchNews({ category });
+export const getNewsByLanguage = async (language, page = "") => {
+  const resData = await fetchNews({ language, page });
 
-  return articles.map(mapArticle);
+  return processArticles(resData);
+};
+
+export const getNewsByCategory = async (category, page = "") => {
+  const resData = await fetchNews({ category, page });
+
+  return processArticles(resData);
 };
