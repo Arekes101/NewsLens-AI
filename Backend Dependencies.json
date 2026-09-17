@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "express": "^4.18.2",           // Web server
+    "cors": "^2.8.5",               // Cross-origin middleware
+    "axios": "^1.6.0",              // HTTP client (RSS fetch)
+    "rss-parser": "^3.13.0",        // Parse BBC RSS feeds
+    "node-fetch": "^3.3.2"          // Fallback HTTP
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"             // Development hot-reload
+  }
+}
